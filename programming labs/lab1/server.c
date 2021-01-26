@@ -1,15 +1,17 @@
 #include "util.h"
 
+// reference: https://www.geeksforgeeks.org/udp-server-client-implementation-c/
 int main(int argc, char** argv){
    if(argc != 2){
-      printf("Wrong number of arguments. Use \"server <UDP listen port>\" to start a server.");
+      printf("Wrong number of arguments. Use \"server <UDP listen port>\" to start a server.\n");
+      exit(EXIT_FAILURE);
    }
    
    int portid = atoi(argv[1]);
    
    // validate portid
    if(portid < 1024 || portid > 65536){
-      printf("port id should be in the range of 1024~65536");
+      printf("port id should be in the range of 1024~65536\n");
       exit(EXIT_FAILURE);
    }
    

@@ -1,9 +1,13 @@
 #include "util.h"
 
+void getfilename(int sockfd, struct addrinfo* server_addr_ptr, char* file_name);
+
+// reference: https://www.geeksforgeeks.org/udp-server-client-implementation-c/
 int main(int argc, char** argv){
    // parse client input
    if(argc != 3){
-      printf("Wrong number of arguments. Use \"deliver <server address> <server port number>\" to send a message to the server.");
+      printf("Wrong number of arguments. Use \"deliver <server address> <server port number>\" to send a message to the server.\n");
+      exit(EXIT_FAILURE);
    }
    
    char* server_addr = argv[1];
@@ -27,6 +31,30 @@ int main(int argc, char** argv){
       exit(EXIT_FAILURE);
    }
 
+   while(true){
+      char file_name[BUFFER_SIZE];
+      getfilename(sockfd, server_addr_ptr, file_name);
+      printf("File exists. Sending a message to the server.\n");
+      sendto(sockfd, "ftp", 3, 0, (const struct sockaddr *)server_addr_ptr->ai_addr, sizeof(struct sockaddr));
+      printf("message \"ftp\" sent.\n");
+      char reply[BUFFER_SIZE];
+      int len = recvfrom(sockfd, reply, BUFFER_SIZE, 0, NULL, NULL);
+      reply[len] = '\0';
+
+      if(!strcmp(reply, "yes")){
+         printf("A file transfer can start.\n");
+      }else{
+         printf("The server did not respond with \"yes\".");
+         close(sockfd);
+         freeaddrinfo(server_addr_ptr);
+         exit(EXIT_FAILURE);
+      }
+   }
+   
+   return(0);
+}
+
+void getfilename(int sockfd, struct addrinfo* server_addr_ptr, char* file_name){
    // ask user to input a message as follows:
    printf("input format: ftp <file name>\n");
    char *line = NULL;
@@ -42,7 +70,6 @@ int main(int argc, char** argv){
    } 
 
    // get file_name
-   char file_name[BUFFER_SIZE];
    strncpy(file_name, line+4, len-5);
 
    // check the existence of the file
@@ -53,22 +80,4 @@ int main(int argc, char** argv){
       freeaddrinfo(server_addr_ptr);
       exit(EXIT_FAILURE);
    }
-   
-   printf("File exists. Sending a message to the server.\n");
-   sendto(sockfd, "ftp", 3, 0, (const struct sockaddr *)server_addr_ptr->ai_addr, sizeof(struct sockaddr));
-   printf("message \"ftp\" sent.\n");
-   char reply[BUFFER_SIZE];
-   len = recvfrom(sockfd, reply, BUFFER_SIZE, 0, NULL, NULL);
-   reply[len] = '\0';
-
-   if(!strcmp(reply, "yes")){
-      printf("A file transfer can start.\n");
-   }else{
-      printf("The server did not respond with \"yes\".");
-      close(sockfd);
-      freeaddrinfo(server_addr_ptr);
-      exit(EXIT_FAILURE);
-   }
-
-   return(0);
 }
