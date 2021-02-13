@@ -63,9 +63,10 @@ void send_file(struct addrinfo* server_addr_ptr, int sockfd, char* file_name){
       sendto(sockfd, packet_str, PACKETSIZE, 0, (const struct sockaddr *)server_addr_ptr->ai_addr, sizeof(struct sockaddr));
    
       // wait for ack
-      char reply[BUFFER_SIZE];
+      char reply[PACKETSIZE];
       recvfrom(sockfd, reply, BUFFER_SIZE, 0, NULL, NULL);
-      if(!strcmp(reply, "ACK")){
+      stringToPacket(reply, &file_packet);
+      if(!strcmp(file_packet.filedata, "ACK")){
          printf("packet sent successfully.\n");
       }else{
          printf("The packet was not sent successfully\n");
@@ -102,7 +103,7 @@ void handshake(struct addrinfo* server_addr_ptr, int sockfd){
    printf("The RTT is %f seconds.\n", time_used);
 
    if(!strcmp(reply, "yes")){
-      printf("A file transfer can start.\n");
+      printf("A file transfer can start.\n\n");
    }else{
       printf("The server did not respond with \"yes\".\n");
       close(sockfd);

@@ -39,6 +39,8 @@ int main(int argc, char** argv){
    
    char buffer[BUFFER_SIZE];
    int clientaddr_len = sizeof(clientaddr);
+   int packetnum = 0;
+   bool succ = true;
    while(true){
       recvfrom(sockfd, (char*) buffer, BUFFER_SIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
       printf("received %s from client\n", buffer);
@@ -54,30 +56,54 @@ int main(int argc, char** argv){
          do{
             char packet_str[PACKETSIZE];
             recvfrom(sockfd, (char*) packet_str, PACKETSIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
-            printf("received %s from client\n", packet_str);
             stringToPacket(packet_str, &recv_packet);
             
             // create the file and write to it
             if(fp == NULL){
-               // create file with name
                strcpy(filename, recv_packet.filename);
-               // if the file cannot be created 
-               //while(access(filename, F_OK) != 0){
-               //   strcat(filename, "copy");
-               //}
-               fp = fopen("copy.jpg", "w");
+
+               // the file exist
+               if(access(filename, F_OK) == 0){
+                  printf("The file %s already exists. Creating a file named copy\n", filename);
+                  strcpy(filename, "copy");
+                  fp = fopen(filename, "w");
+               }else{
+                  fp = fopen(filename, "w");
+               }
+
+               // error checking
+               if(packetnum != recv_packet.frag_no){
+                  succ = false;
+               }
+            } else {
+               // error checking
+               packetnum++;
+               if(packetnum != recv_packet.frag_no){
+                  succ = false;
+               }
+               if(strcmp(filename, recv_packet.filename) != 0 && strcmp(filename, "copy") != 0){
+                  succ = false;
+               }
             }
 
             // write to file
-            //printf("writedata: %s\n", recv_packet.filedata);
             int numbyte = fwrite(recv_packet.filedata, sizeof(char), recv_packet.size, fp);
             if(numbyte != recv_packet.size){
                printf("Write Error!\n");
                exit(1);
             }
             
-            // send ACK
-            sendto(sockfd, "ACK", strlen("ACK")+1, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);
+            // send ACK/NACK
+            char recv_str[PACKETSIZE];
+            if(succ){
+               strcpy(recv_packet.filedata, "ACK");
+               packetToString(&recv_packet, recv_str);
+               sendto(sockfd, recv_str, PACKETSIZE, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);
+            }else{
+               strcpy(recv_packet.filedata, "NACK");
+               packetToString(&recv_packet, recv_str);
+               sendto(sockfd, recv_str, PACKETSIZE, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);
+            }
          } while(recv_packet.total_frag-1 != recv_packet.frag_no);
          printf("file transfer completed.\n");
          fclose(fp);
