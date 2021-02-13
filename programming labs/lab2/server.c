@@ -1,4 +1,5 @@
 #include "util.h"
+#include "packet.h"
 
 // reference: https://www.geeksforgeeks.org/udp-server-client-implementation-c/
 int main(int argc, char** argv){
@@ -39,12 +40,48 @@ int main(int argc, char** argv){
    char buffer[BUFFER_SIZE];
    int clientaddr_len = sizeof(clientaddr);
    while(true){
-      int len = recvfrom(sockfd, (char*) buffer, BUFFER_SIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
+      recvfrom(sockfd, (char*) buffer, BUFFER_SIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
       printf("received %s from client\n", buffer);
       
       if(strcmp(buffer, "ftp") == 0){
          printf("sending \"yes\" to the client.\n");
          sendto(sockfd, "yes", strlen("yes")+1, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);
+
+         // receive file from deliver
+         struct packet recv_packet;
+         FILE* fp = NULL;
+         char filename[BUFFER_SIZE];
+         do{
+            char packet_str[PACKETSIZE];
+            recvfrom(sockfd, (char*) packet_str, PACKETSIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
+            printf("received %s from client\n", packet_str);
+            stringToPacket(packet_str, &recv_packet);
+            
+            // create the file and write to it
+            if(fp == NULL){
+               // create file with name
+               strcpy(filename, recv_packet.filename);
+               // if the file cannot be created 
+               //while(access(filename, F_OK) != 0){
+               //   strcat(filename, "copy");
+               //}
+               fp = fopen("copy.jpg", "w");
+            }
+
+            // write to file
+            //printf("writedata: %s\n", recv_packet.filedata);
+            int numbyte = fwrite(recv_packet.filedata, sizeof(char), recv_packet.size, fp);
+            if(numbyte != recv_packet.size){
+               printf("Write Error!\n");
+               exit(1);
+            }
+            
+            // send ACK
+            sendto(sockfd, "ACK", strlen("ACK")+1, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);
+         } while(recv_packet.total_frag-1 != recv_packet.frag_no);
+         printf("file transfer completed.\n");
+         fclose(fp);
+         free(recv_packet.filename);
       }else{
          printf("sendin \"no\" to the client.\n");
          sendto(sockfd, "no", strlen("no")+1, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);

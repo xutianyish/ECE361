@@ -35,12 +35,10 @@ int main(int argc, char** argv){
       char file_name[BUFFER_SIZE];
       getfilename(sockfd, server_addr_ptr, file_name);
       printf("File exists. Sending a message to the server.\n");
-      sendto(sockfd, "ftp", 3, 0, (const struct sockaddr *)server_addr_ptr->ai_addr, sizeof(struct sockaddr));
+      sendto(sockfd, "ftp", 4, 0, (const struct sockaddr *)server_addr_ptr->ai_addr, sizeof(struct sockaddr));
       printf("message \"ftp\" sent.\n");
       char reply[BUFFER_SIZE];
       int len = recvfrom(sockfd, reply, BUFFER_SIZE, 0, NULL, NULL);
-      reply[len] = '\0';
-
       if(!strcmp(reply, "yes")){
          printf("A file transfer can start.\n");
       }else{
@@ -63,7 +61,7 @@ void getfilename(int sockfd, struct addrinfo* server_addr_ptr, char* file_name){
    
    // check if input format is correct
    if(strncmp(line, "ftp ", 4) != 0){
-      printf("Input format is incorrect.");
+      printf("Input format is incorrect.\n");
       close(sockfd);
       freeaddrinfo(server_addr_ptr);
       exit(EXIT_FAILURE);
@@ -74,7 +72,7 @@ void getfilename(int sockfd, struct addrinfo* server_addr_ptr, char* file_name){
 
    // check the existence of the file
    printf("Check the existence of the file.\n");
-   if(access(file_name, F_OK)){
+   if(access(file_name, F_OK) != 0){
       printf("File %s does not exist.\n", file_name);
       close(sockfd);
       freeaddrinfo(server_addr_ptr);
