@@ -53,7 +53,7 @@ void send_file(struct addrinfo* server_addr_ptr, int sockfd, char* file_name){
    for (int fragid = 0; fragid < numfragment; fragid++){
       struct packet file_packet;
       file_packet.total_frag = numfragment;
-      file_packet.frag_no = fragid;
+      file_packet.frag_no = fragid + 1;
       file_packet.size = fread(file_packet.filedata, sizeof(char), DATASIZE, fp);
       file_packet.filename = file_name;
       char packet_str[PACKETSIZE];

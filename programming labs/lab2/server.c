@@ -39,8 +39,6 @@ int main(int argc, char** argv){
    
    char buffer[BUFFER_SIZE];
    int clientaddr_len = sizeof(clientaddr);
-   int packetnum = 0;
-   bool succ = true;
    while(true){
       recvfrom(sockfd, (char*) buffer, BUFFER_SIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
       printf("received %s from client\n", buffer);
@@ -53,7 +51,9 @@ int main(int argc, char** argv){
          struct packet recv_packet;
          FILE* fp = NULL;
          char filename[BUFFER_SIZE];
+         int packetnum = 1;
          do{
+            bool succ = true;
             char packet_str[PACKETSIZE];
             recvfrom(sockfd, (char*) packet_str, PACKETSIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
             stringToPacket(packet_str, &recv_packet);
@@ -104,7 +104,7 @@ int main(int argc, char** argv){
                packetToString(&recv_packet, recv_str);
                sendto(sockfd, recv_str, PACKETSIZE, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);
             }
-         } while(recv_packet.total_frag-1 != recv_packet.frag_no);
+         } while(recv_packet.total_frag != recv_packet.frag_no);
          printf("file transfer completed.\n");
          fclose(fp);
          free(recv_packet.filename);

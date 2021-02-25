@@ -9,8 +9,8 @@ void init_timeout(struct timeout* t){
 
 // use sampleRTT to update EstimatedRTT, DevRTT, and TimeoutInterval
 void update_timeout(struct timeout* t){
-   t->estimated_rtt = (1-ALPHA) * t->estimated_rtt + ALPHA * t->sample_rtt;
    t->dev_rtt = (1-BETA) * t->dev_rtt + BETA * fabs(t->sample_rtt - t->estimated_rtt);
+   t->estimated_rtt = (1-ALPHA) * t->estimated_rtt + ALPHA * t->sample_rtt;
    t->timeout_interval = t->estimated_rtt + GAMMA * t->dev_rtt;
    printf("update timeout:\n");
    printf("\t estimated_rtt = %f\n", t->estimated_rtt);
