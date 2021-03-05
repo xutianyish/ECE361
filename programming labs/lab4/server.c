@@ -18,7 +18,7 @@ int main(int argc, char** argv){
    active_users = NULL;
    num_poll = 0;
 
-   // create a new TCP socket //TODO: AF or PF? 
+   // create a new TCP socket 
    int welcome_sock = socket(AF_INET, SOCK_STREAM, 0);
    if(welcome_sock == -1){
       perror("Error: failed to create a new socket.\n");
@@ -39,7 +39,7 @@ int main(int argc, char** argv){
    serveraddr_in.sin_addr.s_addr = INADDR_ANY;
 
    // bind socket with server ip address and port number
-   if(bind(welcome_sock, (struct sockaddr*)&serveraddr_in, sizeof(serveraddr_in)) == 0){
+   if(bind(welcome_sock, (struct sockaddr*)&serveraddr_in, sizeof(serveraddr_in)) != 0){
       perror("Error: failed to bind welcome socket with server port.\n");
       exit(EXIT_FAILURE);
    }
@@ -56,7 +56,7 @@ int main(int argc, char** argv){
       for(int i = 0; i < num_poll; i++){
          if(pfds[i].revents & (POLLIN | POLLHUP)){
             if(i == 0){
-               login();
+               process_login();
             }else{
                process_req();
             }
@@ -68,32 +68,64 @@ int main(int argc, char** argv){
 }
 
 // login new user
-void login(){
+void process_login(){
    int welcome_sockfd = pfds[0].fd;
    struct sockaddr_in clientaddr_in;
    int clientaddr_in_len = sizeof(clientaddr_in);
    int connection_sock = accept(welcome_sockfd, (struct sockaddr*)&clientaddr_in, &clientaddr_in_len);
-
+   
    // get client port and ip
    char* client_ip = inet_ntoa((&clientaddr_in)->sin_addr);
    int client_port = ntohs((&clientaddr_in)->sin_port);
 
    // receive message from user
+   struct message msg, reply;
+   m_receive(connection_sock, &msg);
+   
+   char* clientID = strtok(msg.data, ",");
+   char* password = strtok(NULL, ",");
+   while(strtok(NULL, ","))
+      ;
+
 
    // check cred, refuse login if cred does not match
+   if(!verify_cred(registered_users, clientID, password)){
+      reply.type = LO_NAK;
+      reply.size = sprintf(reply.data, "%s", "Username does not exist or incorrect Password.");
+      m_send(connection_sock, &reply);
+      close(connection_sock);
+      return;
+   }
 
    // refuse login if client already logged in
+   struct active_user* user = find_active_user(active_users, clientID, client_ip);
+   if(user != NULL){
+      reply.type = LO_NAK;
+      if(strcmp(user->clientID, clientID) == 0){
+         reply.size = sprintf(reply.data, "User:%s already logged in.", clientID);
+      }
+      if(strcmp(user->clientIP, client_ip) == 0){
+         reply.size = sprintf(reply.data, "Client:%s already connected.", client_ip);
+      }
+      m_send(connection_sock, &reply);
+      close(connection_sock);
+      return;
+   }
 
    // send reply message to client 
-   // LO_NACK 
+   reply.type = LO_ACK;
+   reply.size = 0;
+   m_send(connection_sock, &reply);
 
    // add active user to list
+  
+   active_users = add_active_user(active_users, clientID, client_ip, client_port, connection_sock, NULL);
    num_poll = add_poll(pfds, num_poll, connection_sock);
 
    printf("-----------------------------------------------\n");
    printf("New Client Connected.\n");
-   printf("ClienID: \n");
-   printf("IP address: %d\n", client_ip);
+   printf("ClienID: %s\n", clientID);
+   printf("IP address: %s\n", client_ip);
    printf("Port Number: %d\n", client_port);
    printf("-----------------------------------------------\n");
 }
@@ -120,3 +152,6 @@ int server_parser(int argc, char** argv){
 
    return portid;
 }
+
+
+

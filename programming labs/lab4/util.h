@@ -15,5 +15,5 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-#define BACKLOG 100
+#define BACKLOG 50
 #endif

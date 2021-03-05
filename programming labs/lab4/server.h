@@ -10,9 +10,11 @@
 int server_parser(int argc, char** argv);
 
 // login new user
-void login();
+void process_login();
 
 // process new requests
 void process_req();
+
+
 
 #endif

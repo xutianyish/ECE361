@@ -12,11 +12,11 @@ struct cred{
 
 struct active_user{
    char* clientID;
-   struct session* curr_session;
    char* clientIP;
    int port;
    int sockfd;
-   
+   struct session* curr_session;
+
    struct active_user* next;
 };
 
@@ -34,4 +34,16 @@ struct cred* init_database();
 struct cred* insert_cred(struct cred* db, char* clientID, char* password);
 // print all entries in db
 void print_database(struct cred* db);
+// verify user cred
+// return true if match and exists, otherwise return false
+bool verify_cred(struct cred* registered_users, char* clientID, char* password);
+
+// find active user
+// return the pointer to active_user if found, otherwise return NULL
+struct active_user* find_active_user(struct active_user* active_users, char* clientID, char* clientIP);
+
+// add active user
+struct active_user* add_active_user(struct active_user* active_users, char* clientID, char* clientIP, int port, int sockfd, struct session* curr_session);
+
+ 
 #endif
