@@ -41,7 +41,6 @@ bool verify_cred(struct cred* registered_users, char* clientID, char* password);
 // find active user
 // return the pointer to active_user if found, otherwise return NULL
 struct active_user* find_active_user(struct active_user* active_users, char* clientID, char* clientIP);
-
 // add active user
 struct active_user* add_active_user(struct active_user* active_users, char* clientID, char* clientIP, int port, int sockfd, struct session* curr_session);
 
