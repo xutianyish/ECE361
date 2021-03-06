@@ -16,4 +16,5 @@
 #include <sys/resource.h>
 
 #define BACKLOG 50
+#define BUFFER_SIZE 2000
 #endif

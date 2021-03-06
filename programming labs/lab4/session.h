@@ -25,7 +25,7 @@ struct session{
    int num_user;
 
    struct session* next;
-   struct active_user* connected_users;
+   struct active_user* connected_users[MAX_ACTIVEUSER];
 };
 
 // create mock database
@@ -40,9 +40,25 @@ bool verify_cred(struct cred* registered_users, char* clientID, char* password);
 
 // find active user
 // return the pointer to active_user if found, otherwise return NULL
-struct active_user* find_active_user(struct active_user* active_users, char* clientID, char* clientIP);
+struct active_user* find_active_user(struct active_user* active_users, char* clientID);
 // add active user
 struct active_user* add_active_user(struct active_user* active_users, char* clientID, char* clientIP, int port, int sockfd, struct session* curr_session);
+// get active users list
+void get_active_users(struct active_user* active_users, char* ret);
+// insert session to user
+void update_user_session(struct session* session, struct active_user* user);
+// check if the user is in a session
+bool is_in_session(struct active_user* active_users, char* clientID);
+// remove user with clientID
+struct active_user* remove_user(struct active_user* active_users, char* clientID);
 
- 
+// find session with session ID
+// return the pointer to the sesion if found, otherwise return NULL
+struct session* find_session(struct session* sessions, char*sessionID);
+// insert new session into sessions
+struct session* insert_session(struct session* sessions, char* sessionID, struct active_user* user);
+// update session with newly joined user
+void update_session(struct session* sess, struct active_user* user);
+// remove session
+struct session* remove_session(struct session* sessions, char* sessionID);
 #endif

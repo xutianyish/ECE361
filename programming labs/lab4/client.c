@@ -2,6 +2,7 @@
 // reference: https://www.educative.io/edpresso/splitting-a-string-using-strtok-in-c
 char* args[MAX_ARG];
 int num_arg = 0;
+char curr_user[MAX_NAME];
 
 int main(int argc, char** argv){
    char buff[BUFFER_SIZE+1];
@@ -26,7 +27,7 @@ int main(int argc, char** argv){
             printf("You haven't logged in to the server. \n");
             printf("Format: /login <client ID> <password> <server-IP> <server-port>.\n");
          }else{
-            logout();
+            logout(sockfd);
             sockfd = -1;
          }
       }
@@ -35,7 +36,7 @@ int main(int argc, char** argv){
             printf("You haven't logged in to the server. \n");
             printf("Format: /login <client ID> <password> <server-IP> <server-port>.\n");
          }else{
-            joinsession();
+            joinsession(sockfd);
          }
       }
       else if(strcmp(args[0], "/leavesession") == 0){
@@ -43,7 +44,7 @@ int main(int argc, char** argv){
             printf("You haven't logged in to the server. \n");
             printf("Format: /login <client ID> <password> <server-IP> <server-port>.\n");
          }else{
-            leavesession();
+            leavesession(sockfd);
          }
       }
       else if(strcmp(args[0], "/createsession") == 0){
@@ -51,7 +52,7 @@ int main(int argc, char** argv){
             printf("You haven't logged in to the server. \n");
             printf("Format: /login <client ID> <password> <server-IP> <server-port>.\n");
          }else{
-            createsession();
+            createsession(sockfd);
          }
       }
       else if(strcmp(args[0], "/list") == 0){
@@ -60,22 +61,15 @@ int main(int argc, char** argv){
             printf("Format: /login <client ID> <password> <server-IP> <server-port>.\n");
          }
          else{
-            list();
+            list(sockfd);
          }
       }
       else if(strcmp(args[0], "/quit") == 0){
-         if(sockfd != -1){
-            printf("Loggin off before exiting...\n");
-            // TODO: call logout function here
-            close(sockfd);
-         }
-
-         printf("Exiting the program...\n");
+         quit(sockfd);
          return 0;
       }
       else{
-         printf("Error: invalid command. It must be one of the followings: /login, /logout, /joinsession, /leavesession, /createsession, /list, /quit. Please try again. \n");
-         printf("\n");
+         send_message(sockfd, buff);
       }
 
    }
@@ -109,7 +103,7 @@ int login(){
       return -1;
    }
 
-   char* clientID = args[1];
+   strcpy(curr_user, args[1]);
    char* password = args[2];
    char* server_ip = args[3];
    char* server_port = args[4];
@@ -154,8 +148,8 @@ int login(){
    // create msg
    memset(msg.source, 0, sizeof(msg.source));
    memset(msg.data, 0, sizeof(msg.data));
-   strcpy(msg.source, clientID);
-   msg.size = sprintf(msg.data, "%s,%s", clientID, password);
+   strcpy(msg.source, curr_user);
+   msg.size = sprintf(msg.data, "%s,%s", curr_user, password);
    msg.type = LOGIN;
 
    m_send(sockfd, &msg);
@@ -172,27 +166,146 @@ int login(){
 }
 
 // exit the server
-void logout(){
+void logout(int sockfd){
+   if(num_arg != 1){
+      printf("Error: the format for logout is incorrect.\n");
+      printf("Format: /logout.\n");
+      return;
+   }
+
+   struct message msg;
+   msg.type = EXIT;
+   msg.size = 0;
+   strcpy(msg.source, curr_user);
+   m_send(sockfd, &msg);
 }
 
 // join the conference session with the given session id
-void joinsession(){
+void joinsession(int sockfd){
+   if(num_arg != 2){
+      printf("Error: the format for joinsession is incorrect.\n");
+      printf("Format: /joinsession <session ID>.\n");
+      return;
+   }
+
+   struct message msg, reply;
+   msg.type = JOIN;
+   strcpy(msg.source, curr_user);
+   msg.size = sprintf(msg.data, "%s", args[1]);
+   m_send(sockfd, &msg);
+
+   m_receive(sockfd, &reply);
+   if(reply.type == JN_NAK){
+      char* sessionID = strtok(reply.data, ",");
+      char* failure_msg = strtok(NULL, ",");
+      while(strtok(NULL, ","))
+         ;
+
+      printf("Error: joinsession %s failed. %s", sessionID, failure_msg);
+      return;
+   }
+
+   printf("-----------------------------------------------\n");
+   printf("Successfully joined session %s\n", reply.data);
+   printf("-----------------------------------------------\n");
 }
 
 // leave the current established session
-void leavesession(){
+void leavesession(int sockfd){
+   if(num_arg != 1){
+      printf("Error: the format for leavesession is incorrect.\n");
+      printf("Format: /leavesession.\n");
+      return;
+   }
+
+   struct message msg;
+   msg.type = LEAVE_SESS;
+   msg.size = 0;
+   strcpy(msg.source, curr_user);
+   m_send(sockfd, &msg);
+
+   printf("-----------------------------------------------\n");
+   printf("Left all sessions joined.\n");
+   printf("-----------------------------------------------\n");
 }
 
 // create a new session
-void createsession(){
+void createsession(int sockfd){
+   if(num_arg != 2){
+      printf("Error: the format for createsession is incorrect.\n");
+      printf("Format: /createsession <session ID>.\n");
+      return;
+   }
+   
+   struct message msg, reply;
+   msg.type = NEW_SESS;
+   msg.size = sprintf(msg.data, "%s", args[1]);
+   strcpy(msg.source, curr_user);
+   m_send(sockfd, &msg);
+
+   m_receive(sockfd, &reply);
+   if(reply.type != NS_ACK){
+      printf("Error: failed to create new session.\n");
+   }
+   printf("-----------------------------------------------\n");
+   printf("Successfully created new session with ID: %s\n", reply.data);
+   printf("-----------------------------------------------\n");
 }
 
 // get the list of connected clients and available sessions
-void list(){
-   
+void list(int sockfd){
+   if(num_arg != 1){
+      printf("Error: the format for list is incorrect.\n");
+      printf("Format: /list.\n");
+      return;
+   }
+
+   struct message msg; 
+   msg.type = QUERY;
+   msg.size = 0;
+   m_send(sockfd, &msg);
+
+   m_receive(sockfd, &msg);
+   printf("-----------------------------------------------\n");
+   printf("current connected users:\n");
+   printf("%s", msg.data);
+   printf("-----------------------------------------------\n");
 }
 
 // terminate the program, close socket, free connected user, remove user from session
-void quit(){
+void quit(int sockfd){
+   if(num_arg != 1){
+      printf("Error: the format for quit is incorrect.\n");
+      printf("Format: /quit.\n");
+      return;
+   }
+
+   if(sockfd != -1){
+      printf("Loggin off before exiting...\n");
+      struct message msg;
+      msg.type = EXIT;
+      msg.size = 0;
+      strcpy(msg.source, curr_user);
+      m_send(sockfd, &msg);
+
+      close(sockfd);
+   }
+
+   printf("Exiting the program...\n");
+}
+
+void send_message(int sockfd, char* buff){
+   for(int i = 0; i < BUFFER_SIZE; i++){
+      if(buff[i] == '\n') buff[i] = '\0';
+   }
+
+   struct message msg;
+   msg.type = MESSAGE;
+   msg.size = sprintf(msg.data, "%s", buff);
+   strcpy(msg.source, curr_user);
+   m_send(sockfd, &msg);
+   printf("-----------------------------------------------\n");
+   printf("Broadcast message: %s\n", buff);
+   printf("-----------------------------------------------\n");
 }
 

@@ -5,7 +5,6 @@
 #define MAX_NAME 100
 #define MAX_DATA 1000
 #define NO_FLAGS 0
-#define BUFFER_SIZE 2000
 
 struct message{
    unsigned int type;
@@ -21,9 +20,11 @@ typedef enum msg_type{
    EXIT,
    JOIN,
    JN_ACK,
+   JN_NAK,
    LEAVE_SESS,
    NEW_SESS,
    NS_ACK,
+   NS_NAK,
    MESSAGE,
    QUERY,
    QU_ACK

@@ -2,9 +2,9 @@
 // reference: https://www.geeksforgeeks.org/socket-programming-cc/
 
 // session globals
-static struct cred* registered_users;
-static struct session* sessions;
-static struct active_user* active_users;
+struct cred* registered_users;
+struct session* sessions;
+struct active_user* active_users;
 
 // poll globals
 static struct pollfd pfds[MAX_ACTIVEUSER+1];
@@ -58,13 +58,42 @@ int main(int argc, char** argv){
             if(i == 0){
                process_login();
             }else{
-               process_req();
+               process_request(pfds[i].fd);
             }
          }
       }
    }
 
    return(0);
+}
+
+// process request
+void process_request(int sockfd){
+   struct message msg;
+   m_receive(sockfd, &msg);
+
+   if(msg.type == LOGIN){
+      re_login(sockfd, msg.source);
+   }
+   else if(msg.type == EXIT){
+      logout_user(sockfd, msg.source);
+   }
+   else if(msg.type == JOIN){
+      join_session(sockfd, &msg);
+   }
+   else if(msg.type == NEW_SESS){
+      create_session(sockfd, &msg);
+   }
+   else if(msg.type == LEAVE_SESS){
+      leave_session(sockfd, &msg);
+   }
+   else if(msg.type == MESSAGE){
+      broadcast(sockfd, &msg);
+   }
+   else if(msg.type == QUERY){
+      send_user_session_list(sockfd, msg.source);
+   }
+
 }
 
 // login new user
@@ -98,27 +127,21 @@ void process_login(){
    }
 
    // refuse login if client already logged in
-   struct active_user* user = find_active_user(active_users, clientID, client_ip);
+   struct active_user* user = find_active_user(active_users, clientID);
    if(user != NULL){
       reply.type = LO_NAK;
-      if(strcmp(user->clientID, clientID) == 0){
-         reply.size = sprintf(reply.data, "User:%s already logged in.", clientID);
-      }
-      if(strcmp(user->clientIP, client_ip) == 0){
-         reply.size = sprintf(reply.data, "Client:%s already connected.", client_ip);
-      }
+      reply.size = sprintf(reply.data, "User:%s already logged in.", clientID);
       m_send(connection_sock, &reply);
       close(connection_sock);
       return;
    }
-
+   
    // send reply message to client 
    reply.type = LO_ACK;
    reply.size = 0;
    m_send(connection_sock, &reply);
 
    // add active user to list
-  
    active_users = add_active_user(active_users, clientID, client_ip, client_port, connection_sock, NULL);
    num_poll = add_poll(pfds, num_poll, connection_sock);
 
@@ -128,12 +151,6 @@ void process_login(){
    printf("IP address: %s\n", client_ip);
    printf("Port Number: %d\n", client_port);
    printf("-----------------------------------------------\n");
-}
-
-// process new requests
-void process_req(){
-   printf("TODO.\n");
-   return;
 }
 
 // parser command line arguments and return the TCP port number
@@ -153,5 +170,144 @@ int server_parser(int argc, char** argv){
    return portid;
 }
 
+// handle redundant login
+void re_login(int sockfd, char* source){
+   struct message reply;
+   reply.type = LO_NAK;
+   reply.size = sprintf(reply.data, "User already logged in as %s", source);
+   strcmp(reply.source, source);
+   m_send(sockfd, &reply);
+}
 
+// create new session
+void create_session(int sockfd, struct message* msg){
+   struct message reply; 
+   // check if session already exist
+   if(find_session(sessions, msg->data) != NULL){
+      reply.type = NS_NAK;
+      strcpy(reply.source, msg->source);
+      reply.size = sprintf(reply.data, "%s", "session already exist.");
+      m_send(sockfd, &reply);
+      return;
+   }
+
+   // init session and insert
+   struct active_user* user = find_active_user(active_users, msg->source);
+   if(user == NULL){
+      reply.type = NS_NAK;
+      strcpy(reply.source, msg->source);
+      reply.size = sprintf(reply.data, "%s", "user does not exist.");
+      m_send(sockfd, &reply);
+      return;
+   }
+
+   sessions = insert_session(sessions, msg->data, user);
+   reply.type = NS_ACK;
+   strcpy(reply.source, msg->source);
+   reply.size = sprintf(reply.data, "%s", msg->data);
+   m_send(sockfd, &reply);
+   
+   printf("-----------------------------------------------\n");
+   printf("New session created.\n");
+   printf("Session ID: %s\n", msg->data);
+   printf("-----------------------------------------------\n");
+}
+
+// join session
+void join_session(int sockfd, struct message* msg){
+   struct message reply;
+   // check if session exist 
+   struct session* sess = find_session(sessions, msg->data);
+   if(sess == NULL){
+      reply.type = JN_NAK;
+      reply.size = sprintf(reply.data, "%s,Session ID does not exist.", msg->data);
+      strcpy(reply.source, msg->source);
+      m_send(sockfd, &reply);
+      return;
+   }
+
+   // check if user already join a session
+   if(is_in_session(active_users, msg->source)){
+      reply.type = JN_NAK;
+      reply.size = sprintf(reply.data, "%s,The user is already is a session.", msg->data);
+      strcpy(reply.source, msg->source);
+      m_send(sockfd, &reply);
+      return;
+   }
+
+   // if exist reply with ACK and update new session
+   update_session(sess, find_active_user(active_users, msg->source));
+   reply.type = JN_ACK;
+   reply.size = sprintf(reply.data, "%s", msg->data);
+   strcpy(reply.source, msg->source);
+   m_send(sockfd, &reply);
+
+   // print info
+   printf("-----------------------------------------------\n");
+   printf("User %s joined session %s.\n", msg->source, msg->data);
+   printf("-----------------------------------------------\n");
+}
+
+// leave_session
+void leave_session(int sockfd, struct message* msg){
+   // check if the client joined a session
+   struct active_user* user = find_active_user(active_users, msg->source);
+   char sessionID[BUFFER_SIZE];
+   if(user != NULL && user->curr_session != NULL){
+      user->curr_session->num_user--;
+      strcpy(sessionID, user->curr_session->sessionID);
+      if(user->curr_session->num_user == 0){
+         sessions = remove_session(sessions, user->curr_session->sessionID);
+      }
+   }
+   
+   // print info
+   printf("-----------------------------------------------\n");
+   printf("User %s left session %s.\n", msg->source, sessionID);
+   printf("-----------------------------------------------\n");
+}
+
+// broadcast
+void broadcast(int sockfd, struct message* msg){
+   struct active_user* user = find_active_user(active_users, msg->source);
+   for(int i = 0; i < user->curr_session->num_user; i++){
+      int client_sockfd = user->curr_session->connected_users[i]->sockfd;
+      if(sockfd != client_sockfd){
+         struct message reply;
+         reply.type = MESSAGE;
+         reply.size = sprintf(reply.data, "%s", msg->data);
+         strcpy(reply.source, msg->source);
+         m_send(client_sockfd, &reply);
+      }
+   }
+}
+
+// send user and session list
+void send_user_session_list(int sockfd, char* source){
+   // create message
+   struct message msg;
+   msg.type = QU_ACK;
+   strcmp(msg.source, source);
+   get_active_users(active_users, msg.data);
+   msg.size = strlen(msg.data)+1;
+
+   m_send(sockfd, &msg); 
+}
+
+// logout user
+void logout_user(int sockfd, char* source){
+   struct active_user* user = find_active_user(active_users, source);
+   
+   // decrement session num_user counter
+   if(user->curr_session != NULL){
+      user->curr_session->num_user--;
+      // remove sessio if it is the last user
+      if(user->curr_session->num_user == 0){
+         remove_session(sessions, user->curr_session->sessionID);
+      }
+   }
+
+   // remove user from active user list 
+   active_users = remove_user(active_users, source);
+}
 

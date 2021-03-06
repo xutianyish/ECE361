@@ -15,21 +15,24 @@ void client_parser(char* buff);
 int login();
 
 // exit the server
-void logout();
+void logout(int sockfd);
 
 // join the conference session with the given session id
-void joinsession();
+void joinsession(int sockfd);
 
 // leave the current established session
-void leavesession();
+void leavesession(int sockfd);
 
 // create new session
-void createsession();
+void createsession(int sockfd);
 
 // get the list of connected clients and available sessions
-void list();
+void list(int sockfd);
 
 // terminate the program, close socket, free connected user, remove user from session
-void quit();
+void quit(int sockfd);
+
+// broadcast message to all users in the same session
+void send_message(int sockfd, char* buff);
 
 #endif

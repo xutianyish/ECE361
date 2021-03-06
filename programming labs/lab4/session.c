@@ -53,7 +53,6 @@ bool verify_cred(struct cred* registered_users, char* clientID, char* password){
    struct cred* curr = registered_users;
    while(curr != NULL){
       if((strcmp(curr->clientID, clientID) == 0) && (strcmp(curr->password, password) == 0)){
-         printf("curr->clientID: %s, curr->password: %s\n", curr->clientID, curr->password);
          return true;
       }
       curr = curr->next;
@@ -63,10 +62,10 @@ bool verify_cred(struct cred* registered_users, char* clientID, char* password){
 
 // find active user
 // return the pointer to active_user if found, otherwise return NULL
-struct active_user* find_active_user(struct active_user* active_users, char* clientID, char* clientIP){
+struct active_user* find_active_user(struct active_user* active_users, char* clientID){
    struct active_user* curr = active_users;
    while(curr != NULL){
-      if(strcmp(clientID, curr->clientID) == 0 || strcmp(clientIP, curr->clientIP) == 0){
+      if(strcmp(clientID, curr->clientID) == 0){
          return curr;
       }
       curr = curr->next;
@@ -110,4 +109,141 @@ struct active_user* add_active_user(struct active_user* active_users, char* clie
    return active_users;
 }
 
+// get active users list
+void get_active_users(struct active_user* active_users, char* ret){
+   struct active_user* curr = active_users;
+   char temp[BUFFER_SIZE];
+   ret[0] = '\0';
 
+   while(curr != NULL){
+      if(curr->curr_session == NULL){
+         sprintf(temp, "\tUser:%s, Current_session: N/A\n", curr->clientID);
+      }else{
+         sprintf(temp, "\tUser:%s, Current_session: %s\n", curr->clientID, curr->curr_session);
+      }
+      strcat(ret, temp);
+      curr = curr->next;
+   }
+}
+
+// find session with session ID
+// return the pointer to the sesion if found, otherwise return NULL
+struct session* find_session(struct session* sessions, char* sessionID){
+   struct session* curr = sessions;
+   while(curr != NULL){
+      if(strcmp(curr->sessionID, sessionID) == 0){
+         return curr;
+      }
+      curr = curr->next;
+   }
+   return NULL;
+}
+
+// insert new session into sessions
+struct session* insert_session(struct session* sessions, char* sessionID, struct active_user* user){
+   struct session* prev = NULL;
+   struct session* curr = sessions;
+
+   while(curr != NULL){
+      prev = curr;
+      curr = curr->next;
+   }
+
+   if(prev == NULL){
+      sessions = malloc(sizeof(struct session));
+      sessions->sessionID = malloc(strlen(sessionID)+1);
+      strcpy(sessions->sessionID, sessionID);
+      sessions->num_user = 1;
+      sessions->next = NULL;
+      sessions->connected_users[0] = user;
+      // update user session to user created the session
+      update_user_session(sessions, user);
+   }else{
+      prev->next = malloc(sizeof(struct session));
+      prev->next = malloc(sizeof(struct session));
+      prev->next->sessionID = malloc(strlen(sessionID)+1);
+      strcpy(prev->next->sessionID, sessionID);
+      prev->next->num_user = 1;
+      prev->next->next = NULL;
+      prev->next->connected_users[0] = user;
+      // update user session to user created the session
+      update_user_session(prev->next, user);
+   }
+
+   return sessions;
+}
+
+// insert session to user
+void update_user_session(struct session* session, struct active_user* user){
+   user->curr_session = session;
+}
+
+// check if the user is in a session
+bool is_in_session(struct active_user* active_users, char* clientID){
+   struct active_user* curr = active_users;
+   while(curr != NULL){
+      if(strcmp(clientID, curr->clientID) == 0){
+         if(curr->curr_session)
+            return true; 
+         else 
+            return false;
+      }
+      curr = curr->next;
+   }
+
+   return true;
+}
+
+// update the session with newly joined user
+void update_session(struct session* sess, struct active_user* user){
+   sess->connected_users[sess->num_user] = user;
+   sess->num_user = sess->num_user + 1;
+}
+
+// remove session
+struct session* remove_session(struct session* sessions, char* sessionID){
+   struct session* prev = NULL;
+   struct session* curr = sessions;
+
+   while(curr != NULL && strcmp(sessionID, curr->sessionID) != 0){
+      prev = curr;
+      curr = curr->next;
+   }
+   
+   // remove at head
+   if(prev == NULL){
+      sessions = sessions->next;
+      free(curr->sessionID);
+      free(curr);
+   }else{
+      prev->next = curr->next;
+      free(curr->sessionID);
+      free(curr);
+   }
+   return sessions;
+}
+
+// remove user with clientID
+struct active_user* remove_user(struct active_user* active_users, char* clientID){
+   struct active_user* prev = NULL;
+   struct active_user* curr = active_users;
+
+   while(curr != NULL && strcmp(clientID, curr->clientID) != 0){
+      prev = curr;
+      curr = curr->next;
+   }
+
+    // remove at head
+   if(prev == NULL){
+      active_users = active_users->next;
+      free(curr->clientID);
+      free(curr->clientIP);
+      free(curr);
+   }else{
+      prev->next = curr->next;
+      free(curr->clientID);
+      free(curr->clientIP);
+      free(curr);
+   }
+   return active_users;
+}
