@@ -17,14 +17,15 @@ void string_to_message(const char* buff, struct message* msg){
    
 }
 
-void m_send(int sockfd, struct message* msg){
+int m_send(int sockfd, struct message* msg){
    unsigned char buff[BUFFER_SIZE];
    message_to_string(msg, buff);
-   send(sockfd, buff, sizeof(struct message), NO_FLAGS);
+   return send(sockfd, buff, sizeof(struct message), NO_FLAGS);
 }
 
-void m_receive(int sockfd, struct message* msg){
+int m_receive(int sockfd, struct message* msg){
    unsigned char buff[BUFFER_SIZE];
    int recv_len = recv(sockfd, buff, BUFFER_SIZE, NO_FLAGS);
    string_to_message(buff, msg);
+   return recv_len;
 }

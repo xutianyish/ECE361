@@ -119,7 +119,7 @@ void get_active_users(struct active_user* active_users, char* ret){
       if(curr->curr_session == NULL){
          sprintf(temp, "\tUser:%s, Current_session: N/A\n", curr->clientID);
       }else{
-         sprintf(temp, "\tUser:%s, Current_session: %s\n", curr->clientID, curr->curr_session);
+         sprintf(temp, "\tUser:%s, Current_session: %s\n", curr->clientID, curr->curr_session->sessionID);
       }
       strcat(ret, temp);
       curr = curr->next;
@@ -140,6 +140,7 @@ struct session* find_session(struct session* sessions, char* sessionID){
 }
 
 // insert new session into sessions
+// and let user join the session
 struct session* insert_session(struct session* sessions, char* sessionID, struct active_user* user){
    struct session* prev = NULL;
    struct session* curr = sessions;
@@ -246,4 +247,17 @@ struct active_user* remove_user(struct active_user* active_users, char* clientID
       free(curr);
    }
    return active_users;
+}
+
+// find active_user by sockfd
+struct active_user* find_active_user_by_sockfd(struct active_user* active_users, int sockfd){
+   struct active_user* curr = active_users;
+   while(curr != NULL){
+      if(sockfd == curr->sockfd){
+         return curr;
+      }
+      curr = curr->next;
+   }
+
+   return NULL;
 }

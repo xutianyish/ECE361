@@ -27,11 +27,12 @@ typedef enum msg_type{
    NS_NAK,
    MESSAGE,
    QUERY,
-   QU_ACK
+   QU_ACK,
+   ERR
 } MSG_TYPE;
 
 void message_to_string(const struct message* msg, char* buff);
 void string_to_message(const char* buff, struct message* msg);
-void m_send(int sockfd, struct message* msg);
-void m_receive(int sockfd, struct message* msg);
+int m_send(int sockfd, struct message* msg);
+int m_receive(int sockfd, struct message* msg);
 #endif

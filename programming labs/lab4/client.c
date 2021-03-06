@@ -4,14 +4,47 @@ char* args[MAX_ARG];
 int num_arg = 0;
 char curr_user[MAX_NAME];
 
+struct pollfd pfds[2];
+int num_poll = 0; 
+
 int main(int argc, char** argv){
    char buff[BUFFER_SIZE+1];
    int sockfd = -1;
+   
+   num_poll = add_poll(pfds, num_poll,STDIN_FILENO);
 
    while(true){
+      clear_poll(pfds, num_poll);
+      poll(pfds, num_poll, INF_TIMEOUT);
+
+      if(sockfd != -1 && pfds[1].revents){
+         struct message msg;
+         if(m_receive(sockfd, &msg) <= 0){
+            printf("Server has been shut down.\n");
+            close(sockfd);
+            exit(1);
+         }
+         else if(msg.type == MESSAGE){
+            printf("-----------------------------------------------\n");
+            printf("Received broadcasting message from server: \n");
+            printf("%s\n", msg.data);
+            printf("-----------------------------------------------\n");
+         }
+         else if(msg.type == ERR){
+            printf("-----------------------------------------------\n");
+            printf("Received error message from server: \n");
+            printf("%s\n", msg.data);
+            printf("-----------------------------------------------\n");
+         }
+         continue;
+      }
+
       memset(buff, 0, BUFFER_SIZE);
       num_arg = 0;
       fgets(buff, BUFFER_SIZE, stdin);
+      buff[BUFFER_SIZE] = '\0';
+      char buff_copy[BUFFER_SIZE+1];
+      strcpy(buff_copy, buff);
       client_parser(buff);
       
       if(strcmp(args[0], "/login") == 0){
@@ -69,7 +102,7 @@ int main(int argc, char** argv){
          return 0;
       }
       else{
-         send_message(sockfd, buff);
+         send_message(sockfd, buff_copy);
       }
 
    }
@@ -83,7 +116,7 @@ void client_parser(char* buff){
          buff[i] = '\0';
       } 
    }
-   buff[BUFFER_SIZE] = '\0';
+   
 
    char* token = strtok(buff, " ");
    while(token != NULL){
@@ -162,6 +195,7 @@ int login(){
    }
 
    printf("Successfully logged in as %s.\n", args[1]);
+   num_poll = add_poll(pfds, num_poll, sockfd);
    return sockfd;
 }
 
@@ -178,6 +212,9 @@ void logout(int sockfd){
    msg.size = 0;
    strcpy(msg.source, curr_user);
    m_send(sockfd, &msg);
+   printf("-----------------------------------------------\n");
+   printf("User %s successfully logged out.\n", curr_user);
+   printf("-----------------------------------------------\n");
 }
 
 // join the conference session with the given session id
@@ -201,7 +238,7 @@ void joinsession(int sockfd){
       while(strtok(NULL, ","))
          ;
 
-      printf("Error: joinsession %s failed. %s", sessionID, failure_msg);
+      printf("Error: joinsession %s failed. %s\n", sessionID, failure_msg);
       return;
    }
 
@@ -305,7 +342,7 @@ void send_message(int sockfd, char* buff){
    strcpy(msg.source, curr_user);
    m_send(sockfd, &msg);
    printf("-----------------------------------------------\n");
-   printf("Broadcast message: %s\n", buff);
+   printf("Broadcasting message: %s\n", buff);
    printf("-----------------------------------------------\n");
 }
 

@@ -51,6 +51,8 @@ void update_user_session(struct session* session, struct active_user* user);
 bool is_in_session(struct active_user* active_users, char* clientID);
 // remove user with clientID
 struct active_user* remove_user(struct active_user* active_users, char* clientID);
+// find active_user by sockfd
+struct active_user* find_active_user_by_sockfd(struct active_user* active_users, int sockfd);
 
 // find session with session ID
 // return the pointer to the sesion if found, otherwise return NULL

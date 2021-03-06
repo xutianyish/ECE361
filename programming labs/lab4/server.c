@@ -51,14 +51,16 @@ int main(int argc, char** argv){
    // server loop
    while(true){
       clear_poll(pfds, num_poll);
-      poll(pfds, num_poll, INF_TIMEOUT);
+      int ret = poll(pfds, num_poll, INF_TIMEOUT);
 
       for(int i = 0; i < num_poll; i++){
          if(pfds[i].revents & (POLLIN | POLLHUP)){
             if(i == 0){
                process_login();
             }else{
-               process_request(pfds[i].fd);
+               if(pfds[i].revents & POLLIN){
+                  process_request(pfds[i].fd);
+               }
             }
          }
       }
@@ -70,7 +72,11 @@ int main(int argc, char** argv){
 // process request
 void process_request(int sockfd){
    struct message msg;
-   m_receive(sockfd, &msg);
+   if(m_receive(sockfd, &msg) == 0){
+      struct active_user* user = find_active_user_by_sockfd(active_users, sockfd);
+      printf("Client %s closed the connection abruptly. Logging off automatically...\n", user->clientID);
+      logout_user(sockfd, user->clientID);
+   }
 
    if(msg.type == LOGIN){
       re_login(sockfd, msg.source);
@@ -236,7 +242,9 @@ void join_session(int sockfd, struct message* msg){
    }
 
    // if exist reply with ACK and update new session
-   update_session(sess, find_active_user(active_users, msg->source));
+   struct active_user* user = find_active_user(active_users, msg->source);
+   user->curr_session = sess;
+   update_session(sess, user);
    reply.type = JN_ACK;
    reply.size = sprintf(reply.data, "%s", msg->data);
    strcpy(reply.source, msg->source);
@@ -269,7 +277,19 @@ void leave_session(int sockfd, struct message* msg){
 
 // broadcast
 void broadcast(int sockfd, struct message* msg){
+   printf("-----------------------------------------------\n");
+   printf("broadcasting message:%s\n", msg->data);
+   
    struct active_user* user = find_active_user(active_users, msg->source);
+   if(user->curr_session == NULL){
+      printf("Error: the user does not have an active session.\n");
+      struct message reply;
+      reply.type = ERR;
+      reply.size = sprintf(reply.data, "%s", "Error: the user does not have an active session. Please join a session.");
+      strcpy(reply.source, msg->source);
+      m_send(sockfd, &reply);
+      return;
+   }
    for(int i = 0; i < user->curr_session->num_user; i++){
       int client_sockfd = user->curr_session->connected_users[i]->sockfd;
       if(sockfd != client_sockfd){
@@ -280,6 +300,8 @@ void broadcast(int sockfd, struct message* msg){
          m_send(client_sockfd, &reply);
       }
    }
+   printf("broadcasting finish!\n");
+   printf("-----------------------------------------------\n");
 }
 
 // send user and session list
@@ -296,6 +318,9 @@ void send_user_session_list(int sockfd, char* source){
 
 // logout user
 void logout_user(int sockfd, char* source){
+   printf("-----------------------------------------------\n");
+   printf("Logging off User %s.\n", source);
+   
    struct active_user* user = find_active_user(active_users, source);
    
    // decrement session num_user counter
@@ -309,5 +334,8 @@ void logout_user(int sockfd, char* source){
 
    // remove user from active user list 
    active_users = remove_user(active_users, source);
+   num_poll = remove_poll(pfds, num_poll, sockfd);
+   printf("User successfully logged out.\n", source);
+   printf("-----------------------------------------------\n");
 }
 
