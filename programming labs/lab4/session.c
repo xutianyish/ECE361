@@ -261,3 +261,14 @@ struct active_user* find_active_user_by_sockfd(struct active_user* active_users,
 
    return NULL;
 }
+
+// remove user with clientID from connected users in sess
+// decr num_user counter
+void remove_user_from_session(struct session* session, char* clientID){
+   for(int i = 0; i < session->num_user; i++){
+      if(strcmp(session->connected_users[i]->clientID, clientID) == 0){
+         session->connected_users[i] = session->connected_users[session->num_user-1];
+      }
+   }
+   session->num_user--;
+}

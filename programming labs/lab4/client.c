@@ -102,7 +102,12 @@ int main(int argc, char** argv){
          return 0;
       }
       else{
-         send_message(sockfd, buff_copy);
+         if(sockfd == -1){
+            printf("You haven't logged in to the server. \n");
+            printf("Format: /login <client ID> <password> <server-IP> <server-port>.\n");
+         }else{
+            send_message(sockfd, buff_copy);
+         }
       }
 
    }

@@ -37,6 +37,8 @@ void print_database(struct cred* db);
 // verify user cred
 // return true if match and exists, otherwise return false
 bool verify_cred(struct cred* registered_users, char* clientID, char* password);
+// remove user with clientID from connected users in sess
+void remove_user_from_session(struct session* session, char* clientID);
 
 // find active user
 // return the pointer to active_user if found, otherwise return NULL

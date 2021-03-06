@@ -262,13 +262,15 @@ void leave_session(int sockfd, struct message* msg){
    struct active_user* user = find_active_user(active_users, msg->source);
    char sessionID[BUFFER_SIZE];
    if(user != NULL && user->curr_session != NULL){
-      user->curr_session->num_user--;
+      remove_user_from_session(user->curr_session, msg->source);
       strcpy(sessionID, user->curr_session->sessionID);
       if(user->curr_session->num_user == 0){
          sessions = remove_session(sessions, user->curr_session->sessionID);
       }
    }
    
+   // set curr_session ptr to NULL
+   user->curr_session = NULL;
    // print info
    printf("-----------------------------------------------\n");
    printf("User %s left session %s.\n", msg->source, sessionID);
