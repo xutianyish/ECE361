@@ -26,8 +26,9 @@ int main(int argc, char** argv){
          }
          else if(msg.type == MESSAGE){
             printf("-----------------------------------------------\n");
-            printf("Received broadcasting message from server: \n");
-            printf("%s\n", msg.data);
+            printf("Received broadcasting message from server.\n");
+            printf("sessionID: %s\n", msg.source);
+            printf("message: %s\n", msg.data);
             printf("-----------------------------------------------\n");
          }
          else if(msg.type == ERR){
@@ -42,7 +43,6 @@ int main(int argc, char** argv){
       memset(buff, 0, BUFFER_SIZE);
       num_arg = 0;
       fgets(buff, BUFFER_SIZE, stdin);
-      buff[BUFFER_SIZE] = '\0';
       char buff_copy[BUFFER_SIZE+1];
       strcpy(buff_copy, buff);
       client_parser(buff);
@@ -100,6 +100,9 @@ int main(int argc, char** argv){
       else if(strcmp(args[0], "/quit") == 0){
          quit(sockfd);
          return 0;
+      }
+      else if(strcmp(args[0], "/help") == 0){
+         help();
       }
       else{
          if(sockfd == -1){
@@ -254,20 +257,27 @@ void joinsession(int sockfd){
 
 // leave the current established session
 void leavesession(int sockfd){
-   if(num_arg != 1){
+   if(num_arg != 2){
       printf("Error: the format for leavesession is incorrect.\n");
-      printf("Format: /leavesession.\n");
+      printf("Format: /leavesession <sessionID>.\n");
       return;
    }
 
    struct message msg;
    msg.type = LEAVE_SESS;
-   msg.size = 0;
+   msg.size = sprintf(msg.data, "%s", args[1]);
    strcpy(msg.source, curr_user);
    m_send(sockfd, &msg);
 
+   struct message reply;
+   m_receive(sockfd, &reply);
+   if(reply.type == LS_NAK){
+      printf("Failed to leave session. %s", reply.data);
+      return;
+   }
+
    printf("-----------------------------------------------\n");
-   printf("Left all sessions joined.\n");
+   printf("Successfully left session %s.\n", args[1]);
    printf("-----------------------------------------------\n");
 }
 
@@ -287,7 +297,7 @@ void createsession(int sockfd){
 
    m_receive(sockfd, &reply);
    if(reply.type != NS_ACK){
-      printf("Error: failed to create new session %s.\n", reply.data);
+      printf("Error: failed to create new session. %s\n", reply.data);
       return;
    }
    printf("-----------------------------------------------\n");
@@ -337,18 +347,65 @@ void quit(int sockfd){
    printf("Exiting the program...\n");
 }
 
-void send_message(int sockfd, char* buff){
-   for(int i = 0; i < BUFFER_SIZE; i++){
-      if(buff[i] == '\n') buff[i] = '\0';
-   }
+void send_message(int sockfd, char* buff){ 
+   // replace new line with 0
+   buff[strcspn(buff, "\n")] = 0;
 
+   bool found = false;
+   for(int i = 0; i < BUFFER_SIZE; i++){
+      if(buff[i] == ','){
+         found = true;
+      }
+   }
+  
+   if(!found){
+      printf("Error: the format for broadcast is incorrect.\n");
+      printf("\t<sessionID>,<text>\n");
+      return;
+   }
+   
+   char* sessionID = strtok(buff, ",");
+   char* message = strtok(NULL, ",");
+   while(strtok(NULL, ","))
+      ;
+   
+   
    struct message msg;
    msg.type = MESSAGE;
-   msg.size = sprintf(msg.data, "%s", buff);
+   msg.size = sprintf(msg.data, "%s,%s", sessionID, message);
    strcpy(msg.source, curr_user);
    m_send(sockfd, &msg);
    printf("-----------------------------------------------\n");
-   printf("Broadcasting message: %s\n", buff);
+   printf("Broadcasting message:%s to session:%s\n", message, sessionID);
    printf("-----------------------------------------------\n");
 }
 
+// list the correct usage of all messages
+void help(){
+   printf("-----------------------------------------------\n");
+   printf("User manual:\n");
+   printf("\t/login <clientID> <password> <server-IP> <server-port>\n");
+   printf("\t log into the server at the given address and port.\n\n");
+   
+   printf("\t/logout \n");
+   printf("\tExit the server.\n\n");
+
+   printf("\t/joinsession <session ID>\n");
+   printf("\tJoin the conference session with the given session id.\n\n");
+
+   printf("\t/leavesession <session ID>\n");
+   printf("\tLeave the specified session.\n\n");
+
+   printf("\t/createsession <session ID>\n");
+   printf("\tCreate a mew conference session and join it.\n\n");
+
+   printf("\t/list\n");
+   printf("\tGet the list of the connected clients and available sessions\n\n");
+
+   printf("\t/quit\n");
+   printf("\tTerminate the program.\n\n");
+
+   printf("\t<sessionID>,<text>\n");
+   printf("\tSend a message to the specified conference session. The message is sent after the new line.\n\n");
+   printf("-----------------------------------------------\n");
+}

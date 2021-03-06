@@ -149,7 +149,7 @@ void process_login(){
    m_send(connection_sock, &reply);
 
    // add active user to list
-   active_users = add_active_user(active_users, clientID, client_ip, client_port, connection_sock, NULL);
+   active_users = add_active_user(active_users, clientID, client_ip, client_port, connection_sock);
    num_poll = add_poll(pfds, num_poll, connection_sock);
 
    printf("-----------------------------------------------\n");
@@ -208,14 +208,6 @@ void create_session(int sockfd, struct message* msg){
       return;
    }
 
-   if(user->curr_session != NULL){
-      reply.type = NS_NAK;
-      strcpy(reply.source, msg->source);
-      reply.size = sprintf(reply.data, "%s", "user already in a session.");
-      m_send(sockfd, &reply);
-      return;
-   }
-
    sessions = insert_session(sessions, msg->data, user);
    reply.type = NS_ACK;
    strcpy(reply.source, msg->source);
@@ -242,17 +234,19 @@ void join_session(int sockfd, struct message* msg){
    }
 
    // check if user already join a session
-   if(is_in_session(active_users, msg->source)){
+   // check if the user already in the session
+   struct active_user* user = find_active_user(active_users, msg->source);
+   if(get_session_index(user, msg->data) != -1){
       reply.type = JN_NAK;
-      reply.size = sprintf(reply.data, "%s,The user is already is a session.", msg->data);
+      reply.size = sprintf(reply.data, "%s,The user is already in the session.", msg->data);
       strcpy(reply.source, msg->source);
       m_send(sockfd, &reply);
       return;
    }
 
    // if exist reply with ACK and update new session
-   struct active_user* user = find_active_user(active_users, msg->source);
-   user->curr_session = sess;
+   user->curr_sessions[user->num_session_joined] = sess;
+   user->num_session_joined++;
    update_session(sess, user);
    reply.type = JN_ACK;
    reply.size = sprintf(reply.data, "%s", msg->data);
@@ -267,47 +261,72 @@ void join_session(int sockfd, struct message* msg){
 
 // leave_session
 void leave_session(int sockfd, struct message* msg){
-   // check if the client joined a session
+   // check if the client joined the session
    struct active_user* user = find_active_user(active_users, msg->source);
-   char sessionID[BUFFER_SIZE];
-   if(user != NULL && user->curr_session != NULL){
-      remove_user_from_session(user->curr_session, msg->source);
-      strcpy(sessionID, user->curr_session->sessionID);
-      if(user->curr_session->num_user == 0){
-         sessions = remove_session(sessions, user->curr_session->sessionID);
-      }
-   }
+   int sess_idx = get_session_index(user, msg->data);
    
-   // set curr_session ptr to NULL
-   user->curr_session = NULL;
+   struct message reply; 
+   if(sess_idx == -1){
+      reply.type = LS_NAK;
+      reply.size = sprintf(reply.data, "The user is not in session %s.", msg->data);
+      strcpy(reply.source, msg->source);
+      m_send(sockfd, &reply);
+      return;
+   }
+   // remove user from session
+   remove_user_from_session(user->curr_sessions[sess_idx], msg->source);
+   if(user->curr_sessions[sess_idx]->num_user == 0){
+      sessions = remove_session(sessions, user->curr_sessions[sess_idx]->sessionID);
+   }
+
+   // remove session from user's curr_sessions
+   user->num_session_joined--;
+   user->curr_sessions[sess_idx] = user->curr_sessions[user->num_session_joined];
+
+   // send LS_ACK
+   reply.type = LS_ACK;
+   reply.size = 0;
+   strcpy(reply.source, msg->source);
+   m_send(sockfd, &reply);
+
    // print info
    printf("-----------------------------------------------\n");
-   printf("User %s left session %s.\n", msg->source, sessionID);
+   printf("User %s left session %s.\n", msg->source, msg->data);
    printf("-----------------------------------------------\n");
 }
 
 // broadcast
 void broadcast(int sockfd, struct message* msg){
    printf("-----------------------------------------------\n");
-   printf("broadcasting message:%s\n", msg->data);
-   
+   char* sessionID = strtok(msg->data, ",");
+   char* message = strtok(NULL, ",");
+   while(strtok(NULL, ","))
+      ;
+   printf("broadcasting message:%s to session:%s\n", message, sessionID);
+
+   // check if user is in the session
+   // refuse broadcast request if not
    struct active_user* user = find_active_user(active_users, msg->source);
-   if(user->curr_session == NULL){
-      printf("Error: the user does not have an active session.\n");
+   int session_id = get_session_index(user, sessionID);
+   if(session_id == -1){
+      printf("Error: the user is not in session %s.\n", sessionID);
       struct message reply;
       reply.type = ERR;
-      reply.size = sprintf(reply.data, "%s", "Error: the user does not have an active session. Please join a session.");
+      reply.size = sprintf(reply.data, "%s", "Error: the user is not in the session.");
       strcpy(reply.source, msg->source);
       m_send(sockfd, &reply);
       return;
    }
-   for(int i = 0; i < user->curr_session->num_user; i++){
-      int client_sockfd = user->curr_session->connected_users[i]->sockfd;
+
+   // for all users in the session broadcast
+   for(int i = 0; i < user->curr_sessions[session_id]->num_user; i++){
+      int client_sockfd = user->curr_sessions[session_id]->connected_users[i]->sockfd;
       if(sockfd != client_sockfd){
+         printf("broadcasting to user: %s\n",user->curr_sessions[session_id]->connected_users[i]->clientID);
          struct message reply;
          reply.type = MESSAGE;
-         reply.size = sprintf(reply.data, "%s", msg->data);
-         strcpy(reply.source, msg->source);
+         reply.size = sprintf(reply.data, "%s", message);
+         strcpy(reply.source, sessionID);
          m_send(client_sockfd, &reply);
       }
    }
@@ -333,13 +352,13 @@ void logout_user(int sockfd, char* source){
    printf("Logging off User %s.\n", source);
    
    struct active_user* user = find_active_user(active_users, source);
-   
+    
    // decrement session num_user counter
-   if(user->curr_session != NULL){
-      user->curr_session->num_user--;
-      // remove sessio if it is the last user
-      if(user->curr_session->num_user == 0){
-         remove_session(sessions, user->curr_session->sessionID);
+   for(int i = 0; i < user->num_session_joined; i++){
+      user->curr_sessions[i]->num_user--;
+      // remove session if it is the last user
+      if(user->curr_sessions[i]->num_user == 0){
+         sessions = remove_session(sessions, user->curr_sessions[i]->sessionID);
       }
    }
 
