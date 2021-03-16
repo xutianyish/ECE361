@@ -220,6 +220,7 @@ void logout(int sockfd){
    msg.size = 0;
    strcpy(msg.source, curr_user);
    m_send(sockfd, &msg);
+   num_poll = remove_poll(pfds, num_poll, sockfd);
    printf("-----------------------------------------------\n");
    printf("User %s successfully logged out.\n", curr_user);
    printf("-----------------------------------------------\n");

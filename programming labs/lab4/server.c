@@ -277,13 +277,20 @@ void leave_session(int sockfd, struct message* msg){
          sessions = remove_session(sessions, user->curr_session->sessionID);
       }
    }
-   
-   // set curr_session ptr to NULL
-   user->curr_session = NULL;
-   // print info
-   printf("-----------------------------------------------\n");
-   printf("User %s left session %s.\n", msg->source, sessionID);
-   printf("-----------------------------------------------\n");
+
+   if(user != NULL && user->curr_session == NULL){
+      printf("-----------------------------------------------\n");
+      printf("User is not in an active session.\n", msg->source, sessionID);
+      printf("Nothing performed. \n");
+      printf("-----------------------------------------------\n");
+   }else{
+      // set curr_session ptr to NULL
+      user->curr_session = NULL;
+      // print info
+      printf("-----------------------------------------------\n");
+      printf("User %s left session %s.\n", msg->source, sessionID);
+      printf("-----------------------------------------------\n");
+   }
 }
 
 // broadcast
@@ -294,11 +301,6 @@ void broadcast(int sockfd, struct message* msg){
    struct active_user* user = find_active_user(active_users, msg->source);
    if(user->curr_session == NULL){
       printf("Error: the user does not have an active session.\n");
-      struct message reply;
-      reply.type = ERR;
-      reply.size = sprintf(reply.data, "%s", "Error: the user does not have an active session. Please join a session.");
-      strcpy(reply.source, msg->source);
-      m_send(sockfd, &reply);
       return;
    }
    for(int i = 0; i < user->curr_session->num_user; i++){
@@ -309,8 +311,10 @@ void broadcast(int sockfd, struct message* msg){
          reply.size = sprintf(reply.data, "%s", msg->data);
          strcpy(reply.source, msg->source);
          m_send(client_sockfd, &reply);
+         printf("broadcasting to user: %s\n", user->curr_session->connected_users[i]->clientID);
       }
    }
+
    printf("broadcasting finish!\n");
    printf("-----------------------------------------------\n");
 }
@@ -336,8 +340,8 @@ void logout_user(int sockfd, char* source){
    
    // decrement session num_user counter
    if(user->curr_session != NULL){
-      user->curr_session->num_user--;
-      // remove sessio if it is the last user
+      remove_user_from_session(user->curr_session, source);
+      // remove session if it is the last user
       if(user->curr_session->num_user == 0){
          remove_session(sessions, user->curr_session->sessionID);
       }

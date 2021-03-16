@@ -1,4 +1,4 @@
-#include "util.h"
+   #include "util.h"
 
 void init_timeout(struct timeout* t){
    t->sample_rtt = 0;
@@ -13,9 +13,9 @@ void update_timeout(struct timeout* t){
    t->estimated_rtt = (1-ALPHA) * t->estimated_rtt + ALPHA * t->sample_rtt;
    t->timeout_interval = t->estimated_rtt + GAMMA * t->dev_rtt;
    printf("update timeout:\n");
-   printf("\t estimated_rtt = %f\n", t->estimated_rtt);
-   printf("\t dev_rtt = %f\n", t->dev_rtt);
-   printf("\t timeout_interval = %f\n", t->timeout_interval);
+   printf("\t estimated_rtt = %fs\n", t->estimated_rtt);
+   printf("\t dev_rtt = %fs\n", t->dev_rtt);
+   printf("\t timeout_interval = %fs\n", t->timeout_interval);
 }
 
 bool set_timeout(double interval, int sockfd){
@@ -27,6 +27,6 @@ bool set_timeout(double interval, int sockfd){
       return false;
    }
    
-   printf("\nset timeout interval to:%f\n\n", interval);
+   printf("\nset timeout interval to: %fs\n\n", interval);
    return true;
 }

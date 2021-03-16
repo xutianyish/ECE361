@@ -1,0 +1,39 @@
+database: 
+   user1:user1
+   user2:user2
+   user3:user3
+
+testing:
+login:
+   if the username does not exist or password is incorrect, refuse request
+   if server is not running, refuse request
+   if already logged in with the clientIP, refuse request
+   if already logged in with the username, refuse request
+   else login successful.
+
+logout:
+   if logged in, should logout successfully.
+   if not logged in, should refuse the request.
+
+joinsession:
+   if already in a session, refuse request
+   if session does not exist, refuse request
+   else, successful.
+
+leavesession:
+   if not in a session, refuse request
+   else, successful
+
+createsession:
+   if session ID already exists, refuse request
+   else, successful
+
+list:
+   should list all the clients and available sessions
+
+quit: 
+   terminate the program
+
+send message:
+   all users within the session should receive the message.
+

@@ -42,7 +42,7 @@ int main(int argc, char** argv){
    
    while(true){
       recvfrom(sockfd, (char*) buffer, BUFFER_SIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
-      printf("received %s from client\n", buffer);
+      //printf("received %s from client\n", buffer);
       
       if(strcmp(buffer, "ftp") == 0){
          printf("sending \"yes\" to the client.\n");
@@ -59,6 +59,12 @@ int main(int argc, char** argv){
             recvfrom(sockfd, (char*) packet_str, PACKETSIZE, 0, (struct sockaddr*)&clientaddr, &clientaddr_len);
             stringToPacket(packet_str, &recv_packet);
             printf("received frag_no: %d\n", recv_packet.frag_no);
+            
+            if(packetnum-1 == recv_packet.frag_no){
+               // drop duplicate packet
+               printf("packet #%d dropped.\n", recv_packet.frag_no);
+               continue; 
+            }
 
             // create the file and write to it
             if(fp == NULL){
@@ -88,6 +94,7 @@ int main(int argc, char** argv){
                }
             }
 
+            
             // write to file
             if(succ){
                int numbyte = fwrite(recv_packet.filedata, sizeof(char), recv_packet.size, fp);
@@ -103,7 +110,12 @@ int main(int argc, char** argv){
             if(succ){
                strcpy(recv_packet.filedata, "ACK");
                packetToString(&recv_packet, recv_str);
+               // let server sleep for 3 sec
+               if(recv_packet.frag_no%7 == 0){
+                  sleep(1);
+               }
                sendto(sockfd, recv_str, PACKETSIZE, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);
+               printf("sent ACK: %d\n", packetnum);
             }else{
                // retransmit
                strcpy(recv_packet.filedata, "NACK");
@@ -115,7 +127,7 @@ int main(int argc, char** argv){
          fclose(fp);
          free(recv_packet.filename);
       }else{
-         printf("sendin \"no\" to the client.\n");
+         printf("sending \"no\" to the client.\n");
          sendto(sockfd, "no", strlen("no")+1, 0, (const struct sockaddr*)&clientaddr, clientaddr_len);
       }
    }

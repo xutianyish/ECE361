@@ -87,6 +87,10 @@ void send_file(struct addrinfo* server_addr_ptr, int sockfd, char* file_name, do
          if(reply_len == -1){
             printf("timeout occured. retransmit packet# %d.\n", file_packet.frag_no);
             num_timeout++;
+            if(num_timeout == 100){
+               printf("timeout 100 times. Exiting the program...\n");
+               exit(1);
+            }
          }
       }
       
@@ -101,12 +105,12 @@ void send_file(struct addrinfo* server_addr_ptr, int sockfd, char* file_name, do
       }
 
       // if timeout occured try waiting for leftover packet
-      if(num_timeout > 0){
-         usleep(timeout.timeout_interval * 1000000 * 2);
-         for(int i = 0; i < num_timeout; i++){
-            recvfrom(sockfd, reply, BUFFER_SIZE, 0, NULL, NULL);
-         }
-      }
+      //if(num_timeout > 0){
+      //   usleep(timeout.timeout_interval * 1000000 * 2);
+      //   for(int i = 0; i < num_timeout; i++){
+      //      recvfrom(sockfd, reply, BUFFER_SIZE, 0, NULL, NULL);
+      //   }
+      //}
 
       // update timeout
       timeout.sample_rtt = ((double) (end - start)) / CLOCKS_PER_SEC;

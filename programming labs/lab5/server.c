@@ -356,6 +356,7 @@ void logout_user(int sockfd, char* source){
    // decrement session num_user counter
    for(int i = 0; i < user->num_session_joined; i++){
       user->curr_sessions[i]->num_user--;
+      remove_user_from_session(user->curr_sessions[i], source);
       // remove session if it is the last user
       if(user->curr_sessions[i]->num_user == 0){
          sessions = remove_session(sessions, user->curr_sessions[i]->sessionID);

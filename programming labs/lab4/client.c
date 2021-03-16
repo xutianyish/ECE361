@@ -48,7 +48,7 @@ int main(int argc, char** argv){
       client_parser(buff);
       
       if(strcmp(args[0], "/login") == 0){
-         if(sockfd = -1){
+         if(sockfd == -1){
             sockfd = login();
          }
          else{
@@ -217,6 +217,7 @@ void logout(int sockfd){
    msg.size = 0;
    strcpy(msg.source, curr_user);
    m_send(sockfd, &msg);
+   num_poll = remove_poll(pfds, num_poll, sockfd);
    printf("-----------------------------------------------\n");
    printf("User %s successfully logged out.\n", curr_user);
    printf("-----------------------------------------------\n");
@@ -350,5 +351,6 @@ void send_message(int sockfd, char* buff){
    printf("-----------------------------------------------\n");
    printf("Broadcasting message: %s\n", buff);
    printf("-----------------------------------------------\n");
+
 }
 
