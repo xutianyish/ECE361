@@ -343,7 +343,7 @@ void logout_user(int sockfd, char* source){
       remove_user_from_session(user->curr_session, source);
       // remove session if it is the last user
       if(user->curr_session->num_user == 0){
-         remove_session(sessions, user->curr_session->sessionID);
+         sessions = remove_session(sessions, user->curr_session->sessionID);
       }
    }
 
