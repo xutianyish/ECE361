@@ -10,6 +10,9 @@ struct active_user* active_users;
 static struct pollfd pfds[MAX_ACTIVEUSER+1];
 static nfds_t num_poll;
 
+double inactive_time[MAX_ACTIVEUSER];
+int num_active_user;
+
 int main(int argc, char** argv){
    // init
    int portid = server_parser(argc, argv);
@@ -17,6 +20,9 @@ int main(int argc, char** argv){
    sessions = NULL;
    active_users = NULL;
    num_poll = 0;
+   num_active_user = 0; 
+   int start = (int) time(NULL);
+   int end = (int) time(NULL); 
 
    // create a new TCP socket 
    int welcome_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -51,19 +57,34 @@ int main(int argc, char** argv){
    // server loop
    while(true){
       clear_poll(pfds, num_poll);
-      int ret = poll(pfds, num_poll, INF_TIMEOUT);
+      int ret = poll(pfds, num_poll, 1000); // 1000 is timeout in ms
+      end = (int) time(NULL);
+      // incr timeout counter
+      int interval = end - start; // interval is in seconds
+      struct active_user* user = active_users;
+      while(user != NULL){
+         user->inactive_time += interval;
+         // check timeout
+         if(user->inactive_time > TIMEOUT){
+            printf("%s inactive for %ds. closing connection...\n", user->clientID, TIMEOUT);
+            close_connection(user->sockfd, user->clientID); 
+         }   
 
+         user = user->next;
+      }
+   
       for(int i = 0; i < num_poll; i++){
          if(pfds[i].revents & (POLLIN | POLLHUP)){
             if(i == 0){
                process_login();
             }else{
-               if(pfds[i].revents & POLLIN){
+               if(pfds[i].revents){
                   process_request(pfds[i].fd);
                }
             }
          }
       }
+      start = (int) time(NULL);
    }
 
    return(0);
@@ -72,7 +93,7 @@ int main(int argc, char** argv){
 // process request
 void process_request(int sockfd){
    struct message msg;
-   if(m_receive(sockfd, &msg) == 0){
+   if(m_receive(sockfd, &msg) <= 0){
       struct active_user* user = find_active_user_by_sockfd(active_users, sockfd);
       printf("Client %s closed the connection abruptly. Logging off automatically...\n", user->clientID);
       logout_user(sockfd, user->clientID);
@@ -100,7 +121,9 @@ void process_request(int sockfd){
    else if(msg.type == QUERY){
       send_user_session_list(sockfd, msg.source);
    }
-
+   // reset inactive timer for user
+   struct active_user* user = find_active_user_by_sockfd(active_users, sockfd);
+   user->inactive_time = 0;
 }
 
 // login new user
@@ -230,6 +253,7 @@ void join_session(int sockfd, struct message* msg){
       reply.size = sprintf(reply.data, "%s,Session ID does not exist.", msg->data);
       strcpy(reply.source, msg->source);
       m_send(sockfd, &reply);
+      printf("Join session failed. %s does not exist.\n", msg->data);
       return;
    }
 
@@ -271,6 +295,7 @@ void leave_session(int sockfd, struct message* msg){
       reply.size = sprintf(reply.data, "The user is not in session %s.", msg->data);
       strcpy(reply.source, msg->source);
       m_send(sockfd, &reply);
+      printf("The user is not in session: %s.\n", msg->data);
       return;
    }
    // remove user from session
@@ -370,3 +395,30 @@ void logout_user(int sockfd, char* source){
    printf("-----------------------------------------------\n");
 }
 
+// logout user and send client a message to close their connection as well
+void close_connection(int sockfd, char* source){
+   printf("-----------------------------------------------\n");
+   printf("Logging off User %s.\n", source);
+   
+   struct active_user* user = find_active_user(active_users, source);
+    
+   // decrement session num_user counter
+   for(int i = 0; i < user->num_session_joined; i++){
+      user->curr_sessions[i]->num_user--;
+      remove_user_from_session(user->curr_sessions[i], source);
+      // remove session if it is the last user
+      if(user->curr_sessions[i]->num_user == 0){
+         sessions = remove_session(sessions, user->curr_sessions[i]->sessionID);
+      }
+   }
+
+   struct message msg;
+   msg.type = CLOSE;
+   m_send(sockfd, &msg);
+
+   // remove user from active user list 
+   active_users = remove_user(active_users, source);
+   num_poll = remove_poll(pfds, num_poll, sockfd);
+   printf("User successfully logged out.\n", source);
+   printf("-----------------------------------------------\n");
+}

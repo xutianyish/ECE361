@@ -1,6 +1,6 @@
 #include "client.h"
 // reference: https://www.educative.io/edpresso/splitting-a-string-using-strtok-in-c
-char* args[MAX_ARG];
+char args[MAX_ARG][MAX_NAME];
 int num_arg = 0;
 char curr_user[MAX_NAME];
 
@@ -36,6 +36,12 @@ int main(int argc, char** argv){
             printf("Received error message from server: \n");
             printf("%s\n", msg.data);
             printf("-----------------------------------------------\n");
+         }
+         else if(msg.type == CLOSE){
+            printf("Client inactive for too long. Server closed the connection.\n");
+            printf("Exiting...\n");
+            close(sockfd);
+            exit(0);
          }
          continue;
       }
@@ -129,7 +135,6 @@ void client_parser(char* buff){
    char* token = strtok(buff, " ");
    while(token != NULL){
       // debug print all args
-      args[num_arg] = malloc(strlen(token)+1);
       strcpy(args[num_arg], token);
       num_arg++;
       token = strtok(NULL, " ");
@@ -353,21 +358,21 @@ void send_message(int sockfd, char* buff){
    buff[strcspn(buff, "\n")] = 0;
 
    bool found = false;
-   for(int i = 0; i < BUFFER_SIZE; i++){
-      if(buff[i] == ','){
+   for(int i = 0; i < strlen(buff); i++){
+      if(buff[i] == ':'){
          found = true;
       }
    }
   
    if(!found){
       printf("Error: the format for broadcast is incorrect.\n");
-      printf("\t<sessionID>,<text>\n");
+      printf("\t<sessionID>:<text>\n");
       return;
    }
    
-   char* sessionID = strtok(buff, ",");
-   char* message = strtok(NULL, ",");
-   while(strtok(NULL, ","))
+   char* sessionID = strtok(buff, ":");
+   char* message = strtok(NULL, ":");
+   while(strtok(NULL, ":"))
       ;
    
    
@@ -406,7 +411,7 @@ void help(){
    printf("\t/quit\n");
    printf("\tTerminate the program.\n\n");
 
-   printf("\t<sessionID>,<text>\n");
+   printf("\t<sessionID>:<text>\n");
    printf("\tSend a message to the specified conference session. The message is sent after the new line.\n\n");
    printf("-----------------------------------------------\n");
 }

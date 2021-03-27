@@ -36,4 +36,6 @@ void send_user_session_list(int sockfd, char* source);
 // logout user
 void logout_user(int sockfd, char* source);
 
+// logout user and inform client with a message
+void close_connection(int sockfd, char* source);
 #endif

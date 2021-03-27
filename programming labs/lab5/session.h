@@ -17,6 +17,7 @@ struct active_user{
    int port;
    int sockfd;
    int num_session_joined;
+   int inactive_time;
 
    struct session* curr_sessions[MAX_SESSIONS];
    struct active_user* next;

@@ -93,6 +93,7 @@ struct active_user* add_active_user(struct active_user* active_users, char* clie
       active_users->port = port;
       active_users->sockfd = sockfd;
       active_users->num_session_joined = 0;
+      active_users->inactive_time = 0;
       active_users->next = NULL;
    }else{
       prev->next = malloc(sizeof(struct active_user));
@@ -103,6 +104,7 @@ struct active_user* add_active_user(struct active_user* active_users, char* clie
       prev->next->port = port;
       prev->next->sockfd = sockfd;
       prev->next->num_session_joined = 0;
+      prev->next->inactive_time = 0;
       prev->next->next = NULL;
    }
 

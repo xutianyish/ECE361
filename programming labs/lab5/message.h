@@ -30,7 +30,8 @@ typedef enum msg_type{
    QU_ACK,
    ERR,
    LS_ACK,
-   LS_NAK
+   LS_NAK,
+   CLOSE
 } MSG_TYPE;
 
 void message_to_string(const struct message* msg, char* buff);

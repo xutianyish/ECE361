@@ -1,8 +1,9 @@
 #include "client.h"
 // reference: https://www.educative.io/edpresso/splitting-a-string-using-strtok-in-c
-char* args[MAX_ARG];
+char args[MAX_ARG][MAX_NAME];
 int num_arg = 0;
 char curr_user[MAX_NAME];
+char username[MAX_NAME];
 
 struct pollfd pfds[2];
 int num_poll = 0; 
@@ -29,6 +30,7 @@ int main(int argc, char** argv){
             printf("Received broadcasting message from server: \n");
             printf("%s\n", msg.data);
             printf("-----------------------------------------------\n");
+            printf("curr_user:%s\n", curr_user);
          }
          else if(msg.type == ERR){
             printf("-----------------------------------------------\n");
@@ -38,7 +40,7 @@ int main(int argc, char** argv){
          }
          continue;
       }
-
+      printf("curr_user:%s", curr_user);
       memset(buff, 0, BUFFER_SIZE);
       num_arg = 0;
       fgets(buff, BUFFER_SIZE, stdin);
@@ -126,7 +128,6 @@ void client_parser(char* buff){
    char* token = strtok(buff, " ");
    while(token != NULL){
       // debug print all args
-      args[num_arg] = malloc(strlen(token)+1);
       strcpy(args[num_arg], token);
       num_arg++;
       token = strtok(NULL, " ");
@@ -142,6 +143,7 @@ int login(){
    }
 
    strcpy(curr_user, args[1]);
+   strcpy(username, args[1]);
    char* password = args[2];
    char* server_ip = args[3];
    char* server_port = args[4];
@@ -199,7 +201,7 @@ int login(){
       return -1;
    }
 
-   printf("Successfully logged in as %s.\n", args[1]);
+   printf("Successfully logged in as %s.\n", curr_user);
    num_poll = add_poll(pfds, num_poll, sockfd);
    return sockfd;
 }
@@ -218,9 +220,11 @@ void logout(int sockfd){
    strcpy(msg.source, curr_user);
    m_send(sockfd, &msg);
    num_poll = remove_poll(pfds, num_poll, sockfd);
+
    printf("-----------------------------------------------\n");
    printf("User %s successfully logged out.\n", curr_user);
    printf("-----------------------------------------------\n");
+   memset(curr_user, 0, MAX_NAME);
 }
 
 // join the conference session with the given session id
@@ -249,7 +253,7 @@ void joinsession(int sockfd){
    }
 
    printf("-----------------------------------------------\n");
-   printf("Successfully joined session %s\n", reply.data);
+   printf("%s Successfully joined session %s\n", curr_user, reply.data);
    printf("-----------------------------------------------\n");
 }
 
@@ -268,7 +272,7 @@ void leavesession(int sockfd){
    m_send(sockfd, &msg);
 
    printf("-----------------------------------------------\n");
-   printf("Left all sessions joined.\n");
+   printf("%s Left all sessions joined.\n", curr_user);
    printf("-----------------------------------------------\n");
 }
 
@@ -292,7 +296,7 @@ void createsession(int sockfd){
       return;
    }
    printf("-----------------------------------------------\n");
-   printf("Successfully created new session with ID: %s\n", reply.data);
+   printf("%s Successfully created new session with ID: %s\n", curr_user, reply.data);
    printf("-----------------------------------------------\n");
 }
 
@@ -339,17 +343,18 @@ void quit(int sockfd){
 }
 
 void send_message(int sockfd, char* buff){
+   printf("curr_user:%s", curr_user);
    for(int i = 0; i < BUFFER_SIZE; i++){
       if(buff[i] == '\n') buff[i] = '\0';
    }
-
+   
    struct message msg;
    msg.type = MESSAGE;
    msg.size = sprintf(msg.data, "%s", buff);
    strcpy(msg.source, curr_user);
    m_send(sockfd, &msg);
    printf("-----------------------------------------------\n");
-   printf("Broadcasting message: %s\n", buff);
+   printf("Broadcasting message: %s\n from user: %s", buff, username);
    printf("-----------------------------------------------\n");
 
 }

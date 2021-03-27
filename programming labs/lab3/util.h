@@ -18,6 +18,8 @@
 #define ALPHA       0.125
 #define BETA        0.25
 #define GAMMA       4
+// timeout is 1 minute
+#define TIMROUT     20
 
 struct timeout{
    double sample_rtt;

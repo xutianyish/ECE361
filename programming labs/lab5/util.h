@@ -13,8 +13,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <time.h>
 #include <sys/resource.h>
 
 #define BACKLOG 50
 #define BUFFER_SIZE 2000
+#define TIMEOUT 20
 #endif

@@ -58,7 +58,7 @@ int main(int argc, char** argv){
             if(i == 0){
                process_login();
             }else{
-               if(pfds[i].revents & POLLIN){
+               if(pfds[i].revents){
                   process_request(pfds[i].fd);
                }
             }
@@ -72,7 +72,7 @@ int main(int argc, char** argv){
 // process request
 void process_request(int sockfd){
    struct message msg;
-   if(m_receive(sockfd, &msg) == 0){
+   if(m_receive(sockfd, &msg) <= 0){
       struct active_user* user = find_active_user_by_sockfd(active_users, sockfd);
       printf("Client %s closed the connection abruptly. Logging off automatically...\n", user->clientID);
       logout_user(sockfd, user->clientID);
@@ -299,6 +299,10 @@ void broadcast(int sockfd, struct message* msg){
    printf("broadcasting message:%s\n", msg->data);
    
    struct active_user* user = find_active_user(active_users, msg->source);
+   //if(user == NULL){
+   //   strcpy(msg->source, "user2");
+   //   user = find_active_user(active_users, "user2");
+   //}
    if(user->curr_session == NULL){
       printf("Error: the user does not have an active session.\n");
       return;
@@ -322,9 +326,11 @@ void broadcast(int sockfd, struct message* msg){
 // send user and session list
 void send_user_session_list(int sockfd, char* source){
    // create message
+   printf("sending user list...\n");
    struct message msg;
    msg.type = QU_ACK;
    strcmp(msg.source, source);
+
    get_active_users(active_users, msg.data);
    msg.size = strlen(msg.data)+1;
 
@@ -338,6 +344,10 @@ void logout_user(int sockfd, char* source){
    
    struct active_user* user = find_active_user(active_users, source);
    
+   //if(user == NULL){
+   //   strcpy(source, "user2");
+   //   user = find_active_user(active_users, source);
+   //}
    // decrement session num_user counter
    if(user->curr_session != NULL){
       remove_user_from_session(user->curr_session, source);
