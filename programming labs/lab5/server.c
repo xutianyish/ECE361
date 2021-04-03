@@ -123,7 +123,9 @@ void process_request(int sockfd){
    }
    // reset inactive timer for user
    struct active_user* user = find_active_user_by_sockfd(active_users, sockfd);
-   user->inactive_time = 0;
+   if(user!= NULL){
+      user->inactive_time = 0;
+   }
 }
 
 // login new user
@@ -323,10 +325,17 @@ void leave_session(int sockfd, struct message* msg){
 // broadcast
 void broadcast(int sockfd, struct message* msg){
    printf("-----------------------------------------------\n");
-   char* sessionID = strtok(msg->data, ",");
-   char* message = strtok(NULL, ",");
-   while(strtok(NULL, ","))
-      ;
+   char sessionID[BUFFER_SIZE];
+   char message[BUFFER_SIZE]; 
+   int i = 0;
+   for(i = 0; i < strlen(msg->data); i++){
+      if(msg->data[i] == ',')
+         break;
+   }
+   strncpy(sessionID, msg->data, i);
+   sessionID[i] = '\0';
+   strncpy(message, msg->data + i + 1, strlen(msg->data)-i);
+   
    printf("broadcasting message:%s to session:%s\n", message, sessionID);
 
    // check if user is in the session
@@ -380,7 +389,6 @@ void logout_user(int sockfd, char* source){
     
    // decrement session num_user counter
    for(int i = 0; i < user->num_session_joined; i++){
-      user->curr_sessions[i]->num_user--;
       remove_user_from_session(user->curr_sessions[i], source);
       // remove session if it is the last user
       if(user->curr_sessions[i]->num_user == 0){
